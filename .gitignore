@@ -1,0 +1,35 @@
+# Environment variables / secrets
+.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Build files
+dist/
+build/
+*.tsbuildinfo
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated reports
+backend/data/reports/
+data/reports/
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

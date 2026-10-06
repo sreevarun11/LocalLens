@@ -1,0 +1,26 @@
+{
+  "name": "locallens-workspace",
+  "version": "4.0.0",
+  "private": true,
+  "description": "LocalLens v4 — Evidence-grounded neighborhood decision engine",
+  "scripts": {
+    "dev": "concurrently -n \"API,WEB\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": ".\\.venv\\Scripts\\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview",
+    "start": "npm run dev"
+  },
+  "keywords": [
+    "neighborhood",
+    "real-estate",
+    "openstreetmap",
+    "decision-engine"
+  ],
+  "author": "LocalLens Engineering",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
