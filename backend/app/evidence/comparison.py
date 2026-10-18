@@ -25,6 +25,7 @@ class ComparisonRow(BaseModel):
 class LocalityComparisonSummary(BaseModel):
     locality_a_name: str
     locality_b_name: str
+    radius_m: int = 1500
     key_differences: list[str]
     data_gaps: list[str]
     coverage_differences: list[str]
@@ -43,7 +44,8 @@ class ComparisonEngine:
         water_b: ModuleResult[WaterQualityData] | None,
         crime_a: ModuleResult[CrimeData] | None,
         crime_b: ModuleResult[CrimeData] | None,
-        priorities: list[PriorityKey] | None = None
+        priorities: list[PriorityKey] | None = None,
+        radius_m: int = 1500
     ) -> LocalityComparisonSummary:
         rows: list[ComparisonRow] = []
         key_differences: list[str] = []
@@ -146,11 +148,12 @@ class ComparisonEngine:
                 elif count_a != count_b:
                     diff_count = f"{count_a} listings identified in {loc_a_name} vs {count_b} in {loc_b_name}."
 
+                radius_km_str = f"{radius_m / 1000:g} km" if radius_m >= 1000 else f"{radius_m} m"
                 rows.append(ComparisonRow(
                     category=prio,
                     priority=prio,
                     metric="count_within_radius",
-                    label=f"{cat_labels[prio]} (Count in 1.5 km)",
+                    label=f"{cat_labels[prio]} (Count in {radius_km_str})",
                     val_a=val_a_display,
                     val_b=val_b_display,
                     unit="listings",
@@ -185,7 +188,7 @@ class ComparisonEngine:
             val_b=aqi_b,
             unit="US AQI",
             comparability="comparable" if (aqi_a and aqi_b) else "partly_comparable",
-            comparability_reason="Modeled ~11 km regional reanalysis estimate, not site-specific sensors." if (aqi_a or aqi_b) else "Environmental data unavailable",
+            comparability_reason="Modeled regional reanalysis estimate (ECMWF CAMS ~40 km grid in India), not site-specific sensors." if (aqi_a or aqi_b) else "Environmental data unavailable",
             difference_statement=env_diff,
             source_a=env_source_a,
             source_b=env_source_b,
@@ -205,6 +208,7 @@ class ComparisonEngine:
         return LocalityComparisonSummary(
             locality_a_name=loc_a_name,
             locality_b_name=loc_b_name,
+            radius_m=radius_m,
             key_differences=key_differences,
             data_gaps=data_gaps,
             coverage_differences=coverage_diffs,

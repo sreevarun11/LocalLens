@@ -5,7 +5,7 @@ import {
   PlacesData,
   AirQualityData,
   WaterQualityData,
-  CrimeData,
+  SafetyAndCrimeData,
   CommuteData,
   Coordinates
 } from '../types';
@@ -42,11 +42,20 @@ function setCached(key: string, data: any): void {
 
 export const api = {
   // --- Auth & Account ---
-  async register(email: string, password: string, displayName?: string) {
+  async register(usernameOrEmail: string, password: string, displayName?: string, email?: string) {
+    const isEmail = usernameOrEmail.includes('@');
+    const username = isEmail ? (usernameOrEmail.split('@')[0]) : usernameOrEmail;
+    const userEmail = email || (isEmail ? usernameOrEmail : undefined);
+
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, display_name: displayName })
+      body: JSON.stringify({
+        username,
+        password,
+        display_name: displayName || username,
+        email: userEmail
+      })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -55,15 +64,49 @@ export const api = {
     return await res.json();
   },
 
-  async login(email: string, password: string) {
+  async login(usernameOrEmail: string, password: string) {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({
+        username: usernameOrEmail,
+        email: usernameOrEmail,
+        password
+      })
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || err.detail || 'Invalid email or password');
+      throw new Error(err.error?.message || err.detail || 'Invalid username or password');
+    }
+    return await res.json();
+  },
+
+  async recoverPassword(username: string, recoveryCode: string, newPassword: string) {
+    const res = await fetch(`${API_BASE}/auth/recover-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        recovery_code: recoveryCode,
+        new_password: newPassword
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || err.detail || 'Password recovery failed');
+    }
+    return await res.json();
+  },
+
+  async regenerateRecoveryCodes(currentPassword: string) {
+    const res = await fetch(`${API_BASE}/auth/regenerate-recovery-codes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ current_password: currentPassword })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || err.detail || 'Failed to regenerate recovery codes');
     }
     return await res.json();
   },
@@ -93,33 +136,79 @@ export const api = {
     return await res.json();
   },
 
-  async forgotPassword(email: string) {
-    // Graceful recovery endpoint (if backend endpoint not present, return informative confirmation)
-    try {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback
-    }
-    return { status: 'ok', message: `Password reset instructions sent to ${email}` };
+  async forgotPassword(_emailOrUsername: string) {
+    return { status: 'ok', message: `Please use your single-use recovery code to reset your password.` };
   },
 
-  async resetPassword(password: string) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({ password })
-      });
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback
-    }
+  async resetPassword(_password: string) {
     return { status: 'ok', message: 'Password updated successfully' };
+  },
+
+  async logout() {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: { ...getAuthHeaders() }
+      });
+    } catch {
+      // Offline fallback: non-blocking
+    }
+  },
+
+  // --- Payments ---
+  async getPaymentConfig() {
+    const res = await fetch(`${API_BASE}/payments/config`, {
+      headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) throw new Error('Failed to load payment configuration');
+    return await res.json();
+  },
+
+  async createPaymentOrder(idempotencyKey?: string) {
+    const res = await fetch(`${API_BASE}/payments/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ idempotency_key: idempotencyKey })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || err.detail || 'Failed to create payment order');
+    }
+    return await res.json();
+  },
+
+  async verifyPayment(orderId: string, paymentId: string, signature: string) {
+    const res = await fetch(`${API_BASE}/payments/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({
+        razorpay_order_id: orderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: signature
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || err.detail || 'Payment verification failed');
+    }
+    return await res.json();
+  },
+
+  // --- Admin Analytics ---
+  async getAdminAnalytics() {
+    const res = await fetch(`${API_BASE}/admin/analytics`, {
+      headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) throw new Error('Failed to load admin analytics');
+    return await res.json();
+  },
+
+  async getAdminDiagnostics() {
+    const res = await fetch(`${API_BASE}/admin/diagnostics`, {
+      headers: { ...getAuthHeaders() }
+    });
+    if (!res.ok) throw new Error('Failed to load admin diagnostics');
+    return await res.json();
   },
 
   async getCredits() {
@@ -172,7 +261,7 @@ export const api = {
     return await res.json();
   },
 
-  async addSearchHistory(localityName: string, lat: number, lng: number, provider: string = 'Google Places') {
+  async addSearchHistory(localityName: string, lat: number, lng: number, provider: string = 'OpenStreetMap / Photon') {
     const res = await fetch(`${API_BASE}/search-history`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
@@ -336,17 +425,25 @@ export const api = {
     return details;
   },
 
+  // Invalidate in-memory caches (e.g. after dataset refresh)
+  clearCache(): void {
+    queryCache.clear();
+  },
+
   // --- Modules ---
   async getPlaces(
     lat: number,
     lng: number,
     radiusM: number = 1500,
     categories?: string[],
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    bypassCache?: boolean
   ): Promise<ModuleResult<PlacesData>> {
     const cacheKey = `places_${lat.toFixed(4)}_${lng.toFixed(4)}_${radiusM}_${(categories || []).sort().join(',')}`;
-    const cached = getCached<ModuleResult<PlacesData>>(cacheKey);
-    if (cached) return cached;
+    if (!bypassCache) {
+      const cached = getCached<ModuleResult<PlacesData>>(cacheKey);
+      if (cached) return cached;
+    }
 
     const params = new URLSearchParams({
       lat: lat.toString(),
@@ -376,17 +473,25 @@ export const api = {
     return data;
   },
 
-  async getWater(lat: number, lng: number, signal?: AbortSignal): Promise<ModuleResult<WaterQualityData>> {
+  async getWater(lat: number, lng: number, locality?: string | null, signal?: AbortSignal): Promise<ModuleResult<WaterQualityData>> {
     const params = new URLSearchParams({ lat: lat.toString(), lng: lng.toString() });
+    if (locality) params.append('locality', locality);
     const res = await fetch(`${API_BASE}/modules/water?${params.toString()}`, { signal });
     if (!res.ok) throw new Error(`Water fetch failed: HTTP ${res.status}`);
     return await res.json();
   },
 
-  async getCrime(lat: number, lng: number, signal?: AbortSignal): Promise<ModuleResult<CrimeData>> {
-    const params = new URLSearchParams({ lat: lat.toString(), lng: lng.toString() });
+  async getCrime(lat: number, lng: number, radiusM: number = 3000, signal?: AbortSignal): Promise<ModuleResult<SafetyAndCrimeData>> {
+    const params = new URLSearchParams({ lat: lat.toString(), lng: lng.toString(), radius_m: radiusM.toString() });
     const res = await fetch(`${API_BASE}/modules/crime?${params.toString()}`, { signal });
-    if (!res.ok) throw new Error(`Crime fetch failed: HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Crime & safety fetch failed: HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async getSafety(lat: number, lng: number, radiusM: number = 3000, signal?: AbortSignal): Promise<ModuleResult<SafetyAndCrimeData>> {
+    const params = new URLSearchParams({ lat: lat.toString(), lng: lng.toString(), radius_m: radiusM.toString() });
+    const res = await fetch(`${API_BASE}/modules/safety?${params.toString()}`, { signal });
+    if (!res.ok) throw new Error(`Safety fetch failed: HTTP ${res.status}`);
     return await res.json();
   },
 

@@ -15,10 +15,16 @@ dist/
 build/
 *.tsbuildinfo
 
-# Local database
+# Local database & extracts
 *.db
+!backend/data/telangana_places.db
+*.bak
 *.sqlite
 *.sqlite3
+*.pbf
+backend/data/tmp/
+backend/data/backups/
+backend/data/locallens_dev.db
 
 # Generated reports
 backend/data/reports/

@@ -15,8 +15,10 @@ class Coverage(BaseModel):
         "exact_place",
         "nearby_place",
         "monitoring_station",
+        "mandal",
         "city",
         "district",
+        "commissionerate",
         "state",
         "unknown"
     ] = "unknown"
@@ -61,8 +63,11 @@ class EvidenceItem(BaseModel):
     locality_key: str
     module: str
     metric: str
+    title: str | None = None
+    finding: str | None = None
     value: float | int | str | None = None
     unit: str | None = None
+    status: Literal["available", "limited", "unavailable", "error"] = "available"
     radius_m: int | None = None
     result_cap_reached: bool | None = None
     entities: list[EvidenceEntity] = Field(default_factory=list)
@@ -72,9 +77,15 @@ class EvidenceItem(BaseModel):
     fetched_at: datetime
     measured_at: datetime | None = None
     source_updated_at: datetime | None = None
+    reporting_period: str | None = None
+    geographic_resolution: str | None = None
+    data_kind: str | None = None
     limitations: list[str] = Field(default_factory=list)
 
 class EvidenceGap(BaseModel):
     module: str
     reason: str
     granularity_needed: str
+    status: Literal["unavailable", "limited", "error"] = "unavailable"
+    available_facts: str | None = None
+    missing_data: str | None = None

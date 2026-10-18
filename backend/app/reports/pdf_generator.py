@@ -1,5 +1,6 @@
 import os
 import io
+import math
 from datetime import datetime
 from typing import Any
 import segno
@@ -19,10 +20,11 @@ from reportlab.platypus import (
     PageBreak
 )
 from reportlab.pdfgen import canvas
+from backend.app.config import settings
 
 class NumberedCanvas(canvas.Canvas):
     """
-    Two-pass canvas to dynamically compute and print 'Page X of Y' and headers.
+    Two-pass canvas to dynamically compute and print 'Page X of Y' and headers/footers.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,26 +44,27 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_page_decorations(self, page_count):
         self.saveState()
-        self.setFont("Helvetica", 8)
+        self.setFont("Helvetica", 7.5)
         self.setFillColor(colors.HexColor("#64748b"))
         
         # Running Header (pages 2+)
         if self._pageNumber > 1:
-            self.drawString(54, letter[1] - 36, "LocalLens — Neighborhood Intelligence & Locality Decision Report")
-            self.drawRightString(letter[0] - 54, letter[1] - 36, f"Report ID: {getattr(self, 'report_id_str', '')}")
-            self.setStrokeColor(colors.HexColor("#e2e8f0"))
+            self.drawString(40, letter[1] - 26, "LocalLens — Locality Decision & Property Evaluation Report")
+            self.drawRightString(letter[0] - 40, letter[1] - 26, f"Report ID: {getattr(self, 'report_id_str', '')}")
+            self.setStrokeColor(colors.HexColor("#cbd5e1"))
             self.setLineWidth(0.5)
-            self.line(54, letter[1] - 42, letter[0] - 54, letter[1] - 42)
+            self.line(40, letter[1] - 30, letter[0] - 40, letter[1] - 30)
             
-        # Running Footer
+        # Running Footer (all pages)
         page_text = f"Page {self._pageNumber} of {page_count}"
-        self.drawRightString(letter[0] - 54, 36, page_text)
-        self.drawString(54, 36, "INDEPENDENT & EVIDENCE-GROUNDED — Zero fabricated scores, livability rankings, or fake reviews.")
-        self.setStrokeColor(colors.HexColor("#e2e8f0"))
+        self.drawRightString(letter[0] - 40, 24, page_text)
+        self.drawString(40, 24, "INDEPENDENT & FACT-GROUNDED — Zero fabricated scores, livability rankings, or sponsored placements.")
+        self.setStrokeColor(colors.HexColor("#cbd5e1"))
         self.setLineWidth(0.5)
-        self.line(54, 46, letter[0] - 54, 46)
+        self.line(40, 32, letter[0] - 40, 32)
         
         self.restoreState()
+
 
 def generate_report_pdf(
     output_path: str,
@@ -72,98 +75,98 @@ def generate_report_pdf(
     findings: list[dict[str, Any]],
     amenity_rows: list[dict[str, Any]],
     env_data: dict[str, Any] | None,
+    water_data: dict[str, Any] | None = None,
+    safety_data: dict[str, Any] | None = None,
     property_context: dict[str, Any] | None = None,
     checklist_questions: list[str] | None = None,
     comparison_name: str | None = None,
     user_profile: str = "family",
     user_priorities: list[str] | None = None,
     gaps: list[dict[str, Any]] | None = None,
-    coords: dict[str, float] | None = None
+    coords: dict[str, float] | None = None,
+    resolved_locality_name: str | None = None,
+    radius_m: int = 1500
 ) -> str:
     """
-    Generates a professional, publication-grade decision report PDF meeting Section 18 specifications.
-    Strictly avoids fabricated scores, winners, or unverified claims.
+    Generates a publication-grade decision report PDF meeting strict Phase 2 & Section 5 specs:
+    - Exactly ONE PAGE by default when no optional property context or comparison is requested.
+    - Hard maximum of TWO PAGES when property context, comparison, or checklists are included.
+    - Zero unsupplied optional property fields rendered (no 'None', 'null', or placeholders).
+    - Compact 3-box evidence summary (What We Found, What Is Limited, What Is Unavailable).
+    - Readable font sizes (body not below 8.5 pt).
+    - High-resolution QR verification linked to PUBLIC_BASE_URL.
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # 40 pt margins left/right (532 pt usable width), 34 pt top/bottom (724 pt usable height)
     doc = SimpleDocTemplate(
         output_path,
         pagesize=letter,
-        leftMargin=54,
-        rightMargin=54,
-        topMargin=54,
-        bottomMargin=54
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=34,
+        bottomMargin=36
     )
 
     styles = getSampleStyleSheet()
-    
-    # Custom color palette (Navy & Teal Geospatial aesthetic)
+
+    # Premium Geospatial Color Palette (Navy, Deep Teal, Slate)
     c_navy = colors.HexColor("#0f172a")
     c_teal = colors.HexColor("#0f766e")
     c_slate = colors.HexColor("#475569")
     c_light = colors.HexColor("#f8fafc")
     c_border = colors.HexColor("#cbd5e1")
-    c_amber_bg = colors.HexColor("#fefce8")
-    c_amber_border = colors.HexColor("#fef08a")
+    c_card_bg = colors.HexColor("#f1f5f9")
 
     title_style = ParagraphStyle(
         'DocTitle',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=20,
-        leading=24,
+        fontSize=17,
+        leading=20,
         textColor=c_navy
     )
     subtitle_style = ParagraphStyle(
         'DocSub',
         parent=styles['Normal'],
         fontName='Helvetica',
-        fontSize=9.5,
-        leading=14,
-        textColor=c_teal
+        fontSize=8.5,
+        leading=12,
+        textColor=c_slate
     )
     h1_style = ParagraphStyle(
         'SectionH1',
         parent=styles['Normal'],
         fontName='Helvetica-Bold',
-        fontSize=13,
-        leading=17,
+        fontSize=10,
+        leading=13,
         textColor=c_navy,
-        spaceBefore=12,
-        spaceAfter=6
-    )
-    h2_style = ParagraphStyle(
-        'SectionH2',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=15,
-        textColor=c_teal,
-        spaceBefore=8,
-        spaceAfter=4
+        spaceBefore=5,
+        spaceAfter=3
     )
     body_style = ParagraphStyle(
         'BodyDark',
         parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=8.5,
-        leading=12.5,
+        leading=11.5,
+        textColor=c_navy
+    )
+    body_bold = ParagraphStyle(
+        'BodyBold',
+        parent=styles['Normal'],
+        fontName='Helvetica-Bold',
+        fontSize=8.5,
+        leading=11.5,
         textColor=c_navy
     )
     caption_style = ParagraphStyle(
         'Caption',
         parent=styles['Normal'],
         fontName='Helvetica-Oblique',
-        fontSize=8,
-        leading=11,
+        fontSize=7.5,
+        leading=10,
         textColor=c_slate
-    )
-    callout_style = ParagraphStyle(
-        'CalloutText',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=8,
-        leading=11.5,
-        textColor=colors.HexColor("#854d0e")
     )
     tag_style = ParagraphStyle(
         'TagStyle',
@@ -171,159 +174,211 @@ def generate_report_pdf(
         fontName='Helvetica-Bold',
         fontSize=7.5,
         leading=10,
-        textColor=colors.HexColor("#065f46")
+        textColor=c_navy
     )
 
     story = []
 
     # ========================================================
-    # PAGE 1: COVER & EXECUTIVE OVERVIEW
+    # PAGE 1: OBJECTIVE EVIDENCE, AMENITIES & SNAPSHOT
     # ========================================================
     
+    # Format resolved locality name & coordinates
+    display_name = resolved_locality_name or locality_name
+    coords_text = ""
+    if coords and "lat" in coords and "lng" in coords:
+        coords_text = f" &nbsp;({coords['lat']:.4f}° N, {coords['lng']:.4f}° E)"
+    elif "@" in display_name:
+        coords_text = ""
+
     # Generate QR Code image
     qr = segno.make(verification_url)
     qr_buffer = io.BytesIO()
     qr.save(qr_buffer, kind='png', scale=3, border=0)
     qr_buffer.seek(0)
-    qr_img = Image(qr_buffer, width=1.15*inch, height=1.15*inch)
+    qr_img = Image(qr_buffer, width=0.92*inch, height=0.92*inch)
 
     header_table_data = [
         [
-            Paragraph("<b>LocalLens</b><br/><font size='13' color='#475569'>Neighborhood Intelligence Report</font>", title_style),
+            Paragraph("<b>LocalLens</b> <font size='10' color='#0f766e'>| Locality Decision & Evidence Report</font>", title_style),
             qr_img
         ],
         [
             Paragraph(
-                f"<b>Target Locality:</b> {locality_name}<br/>"
-                f"<b>Survey Boundary:</b> 1,500 meters (straight-line radius)<br/>"
-                f"<b>Generated:</b> {datetime.utcnow().strftime('%B %d, %Y at %H:%M UTC')}<br/>"
-                f"<b>Report ID:</b> <font face='Courier'>{report_id}</font><br/>"
-                f"<b>Verification Hash:</b> <font face='Courier'>{verification_hash[:20]}...</font>",
+                f"<b>Target Locality:</b> {display_name}{coords_text}<br/>"
+                f"<b>Survey Radius:</b> {radius_m:,} m (straight-line) &nbsp;|&nbsp; <b>Evaluated Profile:</b> {user_profile.replace('_', ' ').title()}<br/>"
+                f"<b>Report ID:</b> <font face='Courier'>{report_id[:8]}</font> &nbsp;|&nbsp; <b>Hash:</b> <font face='Courier'>{verification_hash[:18]}...</font> &nbsp;|&nbsp; <b>Generated:</b> {datetime.utcnow().strftime('%d %b %Y, %H:%M UTC')}",
                 subtitle_style
             ),
-            Paragraph("<font size='7' color='#64748b'>Scan QR code to verify this snapshot on the public register</font>", caption_style)
+            Paragraph("<font size='6.5' color='#64748b'>Scan to verify authenticity on register</font>", caption_style)
         ]
     ]
-    header_table = Table(header_table_data, colWidths=[4.9*inch, 1.6*inch])
+    header_table = Table(header_table_data, colWidths=[4.3*inch, 1.25*inch])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('ALIGN', (1,0), (1,1), 'CENTER'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 1),
         ('TOPPADDING', (0,0), (-1,-1), 0),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
         ('RIGHTPADDING', (0,0), (-1,-1), 0),
     ]))
     story.append(header_table)
-    story.append(Spacer(1, 8))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=c_teal, spaceBefore=4, spaceAfter=10))
+    story.append(HRFlowable(width="100%", thickness=1.0, color=c_teal, spaceBefore=4, spaceAfter=5))
 
-    # User Profile & Stated Priorities
-    story.append(Paragraph("Requester Profile & Decision Context", h1_style))
-    priorities_str = ", ".join([p.replace("_", " ").title() for p in (user_priorities or ["Education", "Healthcare", "Transport", "Daily Essentials"])])
-    profile_table_data = [
-        ["Selected Profile", user_profile.replace("_", " ").title()],
-        ["Evaluated Priorities", priorities_str],
-        ["Decision Purpose", "Independent pre-relocation or home evaluation based on open factual evidence"]
+    # Profile & Priority Context Strip
+    prio_list = [p.replace("_", " ").title() for p in (user_priorities or ["Education", "Healthcare", "Transport", "Daily Essentials"])]
+    context_text = f"<b>Evaluated Priorities:</b> {', '.join(prio_list)} &nbsp;|&nbsp; <b>Source Policy:</b> 100% Storable Open Data (ODbL / NDSAP / Open-Meteo)"
+    story.append(Paragraph(context_text, caption_style))
+    story.append(Spacer(1, 3))
+
+    # --- SECTION 1: KEY AMENITIES & FACILITIES TABLE ---
+    story.append(Paragraph("1. Essential Facilities & Nearby Infrastructure", h1_style))
+
+    amenity_table_data = [
+        [
+            Paragraph("<b>Category</b>", tag_style),
+            Paragraph("<b>Facility Count</b>", tag_style),
+            Paragraph("<b>Nearest Proximity</b>", tag_style),
+            Paragraph("<b>Status & Quality Note</b>", tag_style)
+        ]
     ]
-    t_profile = Table(profile_table_data, colWidths=[2.0*inch, 4.5*inch])
-    t_profile.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), c_light),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
-        ('TEXTCOLOR', (0, 0), (-1, -1), c_navy),
+
+    cat_display_map = {
+        "healthcare": "Healthcare & Clinics",
+        "education": "Schools & Education",
+        "safety_infrastructure": "Emergency & Police",
+        "daily_life": "Daily Essentials / Food",
+        "transport": "Transit & Connectivity",
+        "lifestyle": "Parks & Lifestyle"
+    }
+
+    for row in amenity_rows:
+        cat_key = row.get("category", "")
+        cat_label = cat_display_map.get(cat_key, cat_key.replace("_", " ").title())
+        count_val = row.get("count")
+        nearest_m = row.get("nearest_m")
+        row_status = row.get("status", "available")
+
+        if row_status == "error":
+            count_str = "Unavailable"
+            near_str = "—"
+            note_str = "Provider query error or mirror timeout"
+        elif row_status == "unavailable" or count_val is None:
+            count_str = "Unavailable"
+            near_str = "—"
+            note_str = "Outside local coverage or unmapped area"
+        elif count_val == 0:
+            count_str = "0 mapped"
+            near_str = "None identified"
+            note_str = f"No record within {radius_m}m in OpenStreetMap extract"
+        else:
+            count_str = f"{count_val} facilities"
+            near_str = f"{nearest_m} m" if nearest_m is not None else "Within radius"
+            note_str = "Verified in statewide spatial database"
+
+        amenity_table_data.append([
+            Paragraph(cat_label, body_style),
+            Paragraph(count_str, body_bold if (count_val and count_val > 0) else body_style),
+            Paragraph(near_str, body_style),
+            Paragraph(note_str, caption_style)
+        ])
+
+    t_amenities = Table(amenity_table_data, colWidths=[1.7*inch, 1.1*inch, 1.15*inch, 2.45*inch])
+    t_amenities.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), c_card_bg),
+        ('TEXTCOLOR', (0, 0), (-1, 0), c_navy),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
         ('GRID', (0, 0), (-1, -1), 0.5, c_border),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    story.append(t_profile)
-    story.append(Spacer(1, 10))
+    story.append(t_amenities)
+    story.append(Spacer(1, 4))
 
-    # Property Context (User-Provided) if present
-    if property_context and any(property_context.values()):
-        story.append(Paragraph("User-Supplied Property Context", h1_style))
-        prop_rows = [["Declared Attribute", "User Supplied Detail"]]
-        if property_context.get("property_address"):
-            prop_rows.append(["Specific Address / Project", property_context["property_address"]])
-        if property_context.get("floor_level"):
-            prop_rows.append(["Floor Level", property_context["floor_level"]])
-        if property_context.get("unit_facing"):
-            prop_rows.append(["Unit Facing", property_context["unit_facing"]])
-        if property_context.get("water_source_declared"):
-            prop_rows.append(["Declared Water Source", property_context["water_source_declared"]])
-        if property_context.get("power_backup_declared"):
-            prop_rows.append(["Declared Power Backup", property_context["power_backup_declared"]])
-        if property_context.get("rent_or_price"):
-            prop_rows.append(["Quoted Rent / Price", f"Rs. {property_context['rent_or_price']}"])
-        if property_context.get("user_notes"):
-            prop_rows.append(["Requester Notes", property_context["user_notes"]])
+    # --- SECTION 2: ENVIRONMENTAL, WATER & SAFETY CONTEXT ---
+    story.append(Paragraph("2. Environmental, Water & Safety Intelligence", h1_style))
 
-        t_prop = Table(prop_rows, colWidths=[2.2*inch, 4.3*inch])
-        t_prop.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), c_light),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, c_border),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ]))
-        story.append(t_prop)
-        story.append(Spacer(1, 4))
-        story.append(Paragraph("<i>Notice: Property details were supplied by the user and have not been independently inspected by LocalLens.</i>", caption_style))
-        story.append(Spacer(1, 8))
-
-    # Executive Overview
-    story.append(Paragraph("Executive Intelligence Summary", h1_style))
-    story.append(Paragraph(
-        "LocalLens analyzes facts derived strictly from open geospatial databases and atmospheric model grids at the moment of report generation. Unlike real-estate portals, LocalLens does not produce fabricated composite ratings, livability scores, or subjective safety labels. Every statement below is tied to verified evidence.",
-        body_style
-    ))
-    story.append(Spacer(1, 8))
-
-    if findings:
-        for f in findings[:5]:
-            f_head = f.get("headline", "Verified finding")
-            f_det = f.get("detail", "")
-            story.append(Paragraph(f"<b>• {f_head}</b>: {f_det}", body_style))
-            story.append(Spacer(1, 3))
+    # Build concise environment summary
+    if env_data and env_data.get("aqi") is not None:
+        aqi_val = env_data.get("aqi")
+        pm25 = env_data.get("pm25", "—")
+        temp = env_data.get("temperature_c", "—")
+        w_desc = env_data.get("weather_desc") or "Fair"
+        res_km = env_data.get("model_grid_resolution_km", 40.0)
+        env_summary = f"<b>Air Quality:</b> US AQI {aqi_val} &nbsp;|&nbsp; <b>PM2.5:</b> {pm25} µg/m³ &nbsp;|&nbsp; <b>Weather:</b> {temp}°C, {w_desc}<br/><font size='7' color='#64748b'>Model: ECMWF CAMS Global (~{res_km:.0f} km grid). Regional atmospheric estimate, not a property-level sensor.</font>"
     else:
-        story.append(Paragraph("Baseline geographic search completed within 1,500m radius.", body_style))
+        env_summary = "<b>Air Quality & Climate:</b> Atmospheric readings temporarily unavailable for these coordinates."
 
-    # End of Page 1
-    story.append(PageBreak())
+    # Build concise groundwater summary
+    if water_data and water_data.get("district_name"):
+        w_cat = water_data.get("assessment_category") or "Assessed"
+        w_mandal = water_data.get("mandal_name") or "Local Mandal"
+        w_dist = water_data.get("district_name") or "District"
+        w_soe = water_data.get("district_stage_of_extraction_pct", "—")
+        water_summary = f"<b>Groundwater Aquifer:</b> {w_cat} Category ({w_mandal}, {w_dist}) &nbsp;|&nbsp; <b>District Extraction Stage:</b> {w_soe}%<br/><font size='7' color='#64748b'>Source: CGWB & TGWD Ground Water Resources Assessment (2024 / 2022). Assesses recharge sustainability, not tap water potability.</font>"
+    else:
+        water_summary = "<b>Groundwater Aquifer:</b> Official CGWB assessment unavailable (location outside Telangana mandal boundaries)."
 
-    # ========================================================
-    # PAGE 2: LOCALITY SNAPSHOT & DATA COVERAGE
-    # ========================================================
-    story.append(Paragraph("1. Locality Snapshot", h1_style))
-    story.append(Paragraph("Objective synthesis of retrieved neighborhood evidence, divided into what was verified, what is limited, and what is currently unavailable:", caption_style))
-    story.append(Spacer(1, 8))
+    # Build concise safety summary
+    if safety_data:
+        facs = safety_data.get("nearby_facilities", [])
+        p_facs = [f for f in facs if f.get("facility_type") == "police"]
+        f_facs = [f for f in facs if f.get("facility_type") == "fire_station"]
+        p_str = f"{p_facs[0].get('name')} ({p_facs[0].get('distance_m')}m)" if p_facs else "None mapped within radius"
+        f_str = f"{f_facs[0].get('name')} ({f_facs[0].get('distance_m')}m)" if f_facs else "None mapped within radius"
+        safety_summary = f"<b>Emergency Infrastructure:</b> Police: {p_str} &nbsp;|&nbsp; Fire: {f_str}<br/><b>Emergency Helplines:</b> 112 (National Unified) &nbsp;|&nbsp; 100 (Police) &nbsp;|&nbsp; 101 (Fire) &nbsp;|&nbsp; 108 (Ambulance) &nbsp;|&nbsp; 1090 (Women)<br/><font size='7' color='#64748b'>Notice: Neighborhood crime incident statistics are not published by police authorities. Proximity to police does not prove low crime.</font>"
+    else:
+        safety_summary = "<b>Emergency Infrastructure:</b> Nearby police and fire facilities unmapped. Helplines: 112, 100, 101, 108."
 
-    # 3-Box Evidence Breakdown
+    context_table_data = [
+        [Paragraph(env_summary, body_style)],
+        [Paragraph(water_summary, body_style)],
+        [Paragraph(safety_summary, body_style)]
+    ]
+    t_context = Table(context_table_data, colWidths=[6.4*inch])
+    t_context.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), c_light),
+        ('GRID', (0, 0), (-1, -1), 0.5, c_border),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+    ]))
+    story.append(t_context)
+    story.append(Spacer(1, 4))
+
+    # --- SECTION 3: COMPACT 3-BOX EVIDENCE SUMMARY ---
+    story.append(Paragraph("3. Objective Evidence Summary & Caveats", h1_style))
+
     # Box A: What We Found
     found_items = []
     if findings:
-        for f in findings[:4]:
-            found_items.append(f"• {f.get('headline')}: {f.get('detail')}")
+        for f in findings[:3]:
+            h_text = f.get("headline", "")
+            d_text = f.get("detail", "")
+            found_items.append(f"• <b>{h_text}</b>: {d_text}")
     else:
-        found_items.append("• Nearby amenities mapped within 1.5 km straight-line radius.")
+        found_items.append(f"• Baseline spatial search completed within {radius_m}m survey radius.")
+        found_items.append("• Nearby amenities cataloged from OpenStreetMap statewide database.")
 
     # Box B: What Is Limited
     limited_items = [
-        "• Straight-line distances shown; physical walking or driving paths may be longer due to road geometry.",
-        "• Atmospheric figures represent European CAMS model grid estimates (~11 km resolution), not an on-site ground sensor.",
-        "• OpenStreetMap completeness depends on active contributor mapping density."
+        "• Straight-line survey distances shown; physical walking/driving routes may be longer.",
+        "• Air quality reflects ECMWF CAMS regional model grid (~40 km), not on-site sensors.",
+        "• OpenStreetMap completeness depends on active community mapping in each neighborhood."
     ]
 
     # Box C: What Is Unavailable
     unavailable_items = [
-        "• Locality-level micro crime records are not published as machine-readable datasets by municipal authorities.",
-        "• Real-time municipal tap water quality (TDS/pH/chlorine) is not available from public sensors.",
-        "• Absence of records in open databases does not prove non-existence. Verify on site."
+        "• Locality-level crime incident counts are not published by authorities (NCRB is district-level).",
+        "• Real-time tap water potability requires physical on-site testing.",
+        "• Absence of a record in open databases does not prove physical non-existence."
     ]
 
     snapshot_table_data = [
         [
-            Paragraph("<b>WHAT WE FOUND (VERIFIED)</b>", tag_style),
+            Paragraph("<b>WHAT WE FOUND (VERIFIED)</b>", ParagraphStyle('GreenH', parent=tag_style, textColor=colors.HexColor("#065f46"))),
             Paragraph("<b>WHAT IS LIMITED (CAVEATS)</b>", ParagraphStyle('AmberH', parent=tag_style, textColor=colors.HexColor("#92400e"))),
             Paragraph("<b>WHAT IS UNAVAILABLE (DISCLOSURES)</b>", ParagraphStyle('RedH', parent=tag_style, textColor=colors.HexColor("#991b1b")))
         ],
@@ -333,7 +388,7 @@ def generate_report_pdf(
             Paragraph("<br/>".join(unavailable_items), body_style)
         ]
     ]
-    t_snapshot = Table(snapshot_table_data, colWidths=[2.16*inch, 2.16*inch, 2.16*inch])
+    t_snapshot = Table(snapshot_table_data, colWidths=[2.13*inch, 2.13*inch, 2.14*inch])
     t_snapshot.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#ecfdf5")),
         ('BACKGROUND', (1, 0), (1, -1), colors.HexColor("#fffbeb")),
@@ -341,197 +396,154 @@ def generate_report_pdf(
         ('BOX', (0, 0), (0, -1), 0.5, colors.HexColor("#a7f3d0")),
         ('BOX', (1, 0), (1, -1), 0.5, colors.HexColor("#fde68a")),
         ('BOX', (2, 0), (2, -1), 0.5, colors.HexColor("#fecaca")),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 3.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3.5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4.5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4.5),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
     story.append(t_snapshot)
-    story.append(Spacer(1, 14))
-
-    # Data Coverage Meter / Table
-    story.append(Paragraph("Data Coverage & Provenance Table", h1_style))
-    story.append(Paragraph("This measures data completeness and provider granularity, NOT a subjective livability score:", caption_style))
-    story.append(Spacer(1, 6))
-
-    coverage_rows = [
-        ["Domain / Module", "Status", "Source Provider", "Granularity", "Storage Policy"],
-        ["Essential Amenities", "Verified", "OpenStreetMap", "Exact Facility", "Storable (ODbL)"],
-        ["Air Quality & Atmosphere", "Verified", "Open-Meteo European CAMS", "11 km Grid Estimate", "Storable (Attribution)"],
-        ["Transit & Connectivity", "Verified", "OpenStreetMap Transit Nodes", "Station / Stop", "Storable (ODbL)"],
-        ["Piped Water Quality", "Unavailable", "Municipal Agency / CGWB", "No local sensor", "Public domain caveat"],
-        ["Micro Crime Statistics", "Unavailable", "NCRB / State Police", "District only (no local data)", "Absence disclaimer"]
-    ]
-    t_coverage = Table(coverage_rows, colWidths=[1.6*inch, 1.0*inch, 1.7*inch, 1.2*inch, 1.0*inch])
-    t_coverage.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), c_light),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 0.5, c_border),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-    ]))
-    story.append(t_coverage)
-
-    # End of Page 2
-    story.append(PageBreak())
-
-    # ========================================================
-    # PAGE 3+: DETAILED CATEGORIES, CONNECTIVITY & DISCLOSURES
-    # ========================================================
-    story.append(Paragraph("2. Essential Services & Amenities Detail", h1_style))
-    story.append(Paragraph("Verified facilities identified within the 1,500 meter survey boundary, sorted by category:", caption_style))
-    story.append(Spacer(1, 6))
-
-    amenity_table_data = [
-        ["Category", "Facility Count (≤1.5 km)", "Nearest Distance", "Provider", "Evidence Quality"]
-    ]
-    for row in amenity_rows:
-        amenity_table_data.append([
-            row.get("category", "").replace("_", " ").title(),
-            str(row.get("count", 0)),
-            f"{row.get('nearest_m')} m" if row.get('nearest_m') else "None identified",
-            "OpenStreetMap",
-            "Grounded Fact"
-        ])
-
-    t_amenities = Table(amenity_table_data, colWidths=[1.8*inch, 1.2*inch, 1.1*inch, 1.3*inch, 1.1*inch])
-    t_amenities.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), c_light),
-        ('TEXTCOLOR', (0, 0), (-1, 0), c_navy),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('ALIGN', (1, 0), (2, -1), 'CENTER'),
-        ('GRID', (0, 0), (-1, -1), 0.5, c_border),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
-    ]))
-    story.append(t_amenities)
-    story.append(Spacer(1, 10))
-
-    # Environmental Detail
-    story.append(Paragraph("3. Environmental & Atmosphere Data", h1_style))
-    if env_data:
-        aqi_val = env_data.get("aqi", "N/A")
-        pm25 = env_data.get("pm25", "N/A")
-        pm10 = env_data.get("pm10", "N/A")
-        env_text = f"<b>Air Quality Index:</b> {aqi_val} (US AQI Scale) &nbsp;&nbsp;|&nbsp;&nbsp; <b>PM2.5:</b> {pm25} µg/m³ &nbsp;&nbsp;|&nbsp;&nbsp; <b>PM10:</b> {pm10} µg/m³"
-    else:
-        env_text = "Air quality model estimates currently unavailable for this geographic coordinate."
-
-    story.append(Paragraph(env_text, body_style))
     story.append(Spacer(1, 4))
-    
-    env_callout = [
-        [Paragraph("<b>Mandatory Disclosure:</b> Air quality estimates are sourced from Open-Meteo European CAMS atmospheric model grid estimates (approx 11 km spatial resolution), not a calibrated ground-level sensor at this specific property. Wind and micro-topography may cause localized variations.", callout_style)]
-    ]
-    t_env_callout = Table(env_callout, colWidths=[6.5*inch])
-    t_env_callout.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), c_amber_bg),
-        ('BOX', (0, 0), (-1, -1), 0.5, c_amber_border),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 7),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
-    ]))
-    story.append(t_env_callout)
-    story.append(Spacer(1, 10))
 
-    # Water & Safety Disclosures
-    story.append(Paragraph("4. Water & Safety Infrastructure Disclosures", h1_style))
-    disclosure_rows = [
-        [
-            Paragraph("<b>Water Quality Assessment:</b> Continuous piped water quality measurements are not published in machine-readable format by municipal water boards for this micro-locality. Rely on on-site tap TDS testing and society water source declaration (borewell vs municipal).", body_style)
-        ],
-        [
-            Paragraph("<b>Safety & Crime Data Disclosure:</b> Locality-level micro crime statistics were not available from configured verified sources. In India, crime records (NCRB) are aggregated at the police station or district tier, not at street or block level. <i>Crucial: Absence of data does not imply absence of crime or guarantee personal safety.</i>", body_style)
-        ]
-    ]
-    t_disclosures = Table(disclosure_rows, colWidths=[6.5*inch])
-    t_disclosures.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), c_light),
-        ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor("#fff1f2")),
-        ('BOX', (0, 0), (-1, 0), 0.5, c_border),
-        ('BOX', (0, 1), (-1, 1), 0.5, colors.HexColor("#fecdd3")),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LEFTPADDING', (0, 0), (-1, -1), 7),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 7),
-    ]))
-    story.append(t_disclosures)
-    story.append(Spacer(1, 10))
+    # Verification URL note at base of Page 1
+    story.append(Paragraph(
+        f"<font size='7' color='#64748b'>Verify snapshot authenticity & SHA-256 seal: <font color='#0f766e'>{verification_url}</font> &nbsp;|&nbsp; Licensing: OpenStreetMap (ODbL 1.0) & Open-Meteo & CGWB/TGWD.</font>",
+        caption_style
+    ))
 
-    # Comparison (if comparison locality selected)
-    if comparison_name:
-        story.append(Paragraph(f"5. Locality Comparison: {locality_name} vs {comparison_name}", h1_style))
-        story.append(Paragraph(f"Both localities evaluated using identical 1,500m radius parameters without declaring a subjective 'winner':", caption_style))
-        story.append(Spacer(1, 4))
-        comp_rows = [
-            ["Metric / Category", locality_name, comparison_name, "Comparability Note"],
-            ["Essential Amenities", f"{sum(r.get('count',0) for r in amenity_rows)} identified", "Evaluated in comparison mode", "Comparable under same ODbL survey criteria"],
-            ["Atmosphere (AQI)", str(env_data.get('aqi', 'N/A')) if env_data else 'N/A', "Grid estimate", "Same model resolution (~11 km)"]
-        ]
-        t_comp = Table(comp_rows, colWidths=[1.8*inch, 1.5*inch, 1.5*inch, 1.7*inch])
-        t_comp.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), c_light),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 0.5, c_border),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ]))
-        story.append(t_comp)
-        story.append(Spacer(1, 10))
+    # ========================================================
+    # CONDITIONAL PAGE 2: PROPERTY CONTEXT, COMPARISON & CHECKLIST
+    # Only generated when useful extra content actually exists!
+    # ========================================================
+    supplied_property_fields = {}
+    if property_context:
+        for k, v in property_context.items():
+            if v and str(v).strip() and str(v).lower() not in ("none", "null", "n/a", "not provided", ""):
+                supplied_property_fields[k] = str(v).strip()
 
-    # Physical Checklist
-    story.append(KeepTogether([
-        Paragraph("6. Physical 'Verify On-Site' Inspection Checklist", h1_style),
-        Paragraph("Digital datasets cannot inspect street lighting, physical water pressure, or localized construction noise. Bring this checklist on your in-person visit:", caption_style),
-        Spacer(1, 6)
-    ]))
+    has_property_context = len(supplied_property_fields) > 0
+    has_comparison = bool(comparison_name and comparison_name.strip())
+    has_checklist = bool(checklist_questions and len(checklist_questions) > 0)
 
-    questions = checklist_questions or [
-        "Inspect water pressure and test TDS level directly from kitchen tap.",
-        "Verify operational status of nearest clinic or emergency medical facility.",
-        "Assess evening street lighting along direct pedestrian route to nearest transit stop.",
-        "Check cellular data signal and 5G network coverage inside the target property.",
-        "Observe traffic bottleneck conditions during peak commute hours (8:30 AM & 6:30 PM)."
-    ]
+    needs_page_2 = has_property_context or has_comparison or has_checklist
 
-    check_table_data = []
-    for q in questions[:5]:
-        check_table_data.append([
-            Paragraph("<font size='9'><b>[ &nbsp; ]</b></font>", body_style),
-            Paragraph(q, body_style)
-        ])
+    if needs_page_2:
+        story.append(PageBreak())
 
-    t_check = Table(check_table_data, colWidths=[0.4*inch, 6.1*inch])
-    t_check.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-    ]))
-    story.append(t_check)
-    story.append(Spacer(1, 10))
+        # Page 2 Header
+        story.append(Paragraph("Supplemental Property & Decision Details", title_style))
+        story.append(Paragraph(f"Additional context for {display_name} — requester declarations and on-site checklist:", subtitle_style))
+        story.append(Spacer(1, 6))
 
-    # Provenance, Disclaimer & Authenticity Seal
-    story.append(KeepTogether([
-        Paragraph("7. Data Provenance & Legal Disclaimers", h1_style),
-        Paragraph(
-            "<b>Licensing & Attributions:</b> Map listings © OpenStreetMap contributors under ODbL 1.0. Environmental data provided by Open-Meteo. Proprietary commercial map data is excluded from persistent PDF records.<br/>"
-            "<b>Disclaimer:</b> LocalLens is an informational decision support tool. It does not provide real estate, legal, structural, or financial advice. All physical inspections must be conducted independently.<br/>"
+        # 1. User-Supplied Property Context (if present)
+        if has_property_context:
+            story.append(Paragraph("4. User-Supplied Property Information", h1_style))
+
+            prop_label_map = {
+                "property_address": "Specific Address / Project Name",
+                "floor_level": "Floor Level",
+                "unit_facing": "Unit Facing Orientation",
+                "water_source_declared": "Declared Water Source",
+                "power_backup_declared": "Declared Power Backup",
+                "rent_or_price": "Quoted Rent / Price",
+                "user_notes": "Requester Notes & Inquiries"
+            }
+
+            prop_table_rows = [
+                [Paragraph("<b>Declared Property Attribute</b>", tag_style), Paragraph("<b>User-Supplied Detail</b>", tag_style)]
+            ]
+            for field_key, field_label in prop_label_map.items():
+                if field_key in supplied_property_fields:
+                    val = supplied_property_fields[field_key]
+                    if field_key == "rent_or_price" and not val.startswith("Rs.") and not val.startswith("₹"):
+                        val = f"₹ {val}"
+                    prop_table_rows.append([
+                        Paragraph(field_label, body_style),
+                        Paragraph(val, body_bold)
+                    ])
+
+            t_prop = Table(prop_table_rows, colWidths=[2.2*inch, 4.2*inch])
+            t_prop.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), c_card_bg),
+                ('GRID', (0, 0), (-1, -1), 0.5, c_border),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            story.append(t_prop)
+            story.append(Spacer(1, 2))
+            story.append(Paragraph("<i>Notice: The property attributes above were declared by the user and have NOT been independently verified or inspected by LocalLens.</i>", caption_style))
+            story.append(Spacer(1, 8))
+
+        # 2. Locality Comparison (if requested)
+        if has_comparison:
+            story.append(Paragraph(f"5. Locality Comparison: {locality_name} vs {comparison_name}", h1_style))
+            story.append(Paragraph(f"Both localities evaluated using identical {radius_m}m radius parameters without declaring a subjective 'winner':", caption_style))
+            story.append(Spacer(1, 4))
+
+            comp_rows = [
+                [
+                    Paragraph("<b>Metric / Category</b>", tag_style),
+                    Paragraph(f"<b>{locality_name}</b>", tag_style),
+                    Paragraph(f"<b>{comparison_name}</b>", tag_style),
+                    Paragraph("<b>Comparability Note</b>", tag_style)
+                ],
+                [
+                    Paragraph("Essential Amenities", body_style),
+                    Paragraph(f"{sum(r.get('count', 0) or 0 for r in amenity_rows)} identified", body_style),
+                    Paragraph("Evaluated in compare mode", body_style),
+                    Paragraph(f"Same {radius_m}m radius and ODbL dataset criteria", caption_style)
+                ],
+                [
+                    Paragraph("Atmosphere (US AQI)", body_style),
+                    Paragraph(str(env_data.get('aqi', '—')) if env_data else '—', body_style),
+                    Paragraph("Model grid estimate", body_style),
+                    Paragraph("Same ECMWF CAMS atmospheric model grid", caption_style)
+                ]
+            ]
+            t_comp = Table(comp_rows, colWidths=[1.8*inch, 1.4*inch, 1.4*inch, 1.8*inch])
+            t_comp.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), c_card_bg),
+                ('GRID', (0, 0), (-1, -1), 0.5, c_border),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            story.append(t_comp)
+            story.append(Spacer(1, 8))
+
+        # 3. Physical Checklist (if present)
+        if has_checklist:
+            story.append(Paragraph("6. Physical 'Verify On-Site' Inspection Checklist", h1_style))
+            story.append(Paragraph("Digital datasets cannot inspect street lighting, physical tap pressure, or localized construction noise. Bring this checklist on your in-person visit:", caption_style))
+            story.append(Spacer(1, 4))
+
+            check_table_data = []
+            for q in checklist_questions[:5]:
+                check_table_data.append([
+                    Paragraph("<font size='9'><b>[ &nbsp; ]</b></font>", body_style),
+                    Paragraph(q, body_style)
+                ])
+
+            t_check = Table(check_table_data, colWidths=[0.35*inch, 6.05*inch])
+            t_check.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+                ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ]))
+            story.append(t_check)
+            story.append(Spacer(1, 8))
+
+        # 4. Source Attribution & Legal Register
+        story.append(Paragraph("7. Data Provenance & Legal Register", h1_style))
+        story.append(Paragraph(
+            "<b>Licensing & Attributions:</b> Map listings © OpenStreetMap contributors under ODbL 1.0. Environmental data provided by Open-Meteo & Copernicus Atmosphere Monitoring Service. Groundwater assessment © Central Ground Water Board (CGWB) & Ground Water Department, Govt. of Telangana (NDSAP India).<br/>"
+            "<b>Disclaimer:</b> LocalLens is an informational decision support tool. It does not provide real estate brokerage, legal title, structural engineering, or investment advice. All physical conditions must be verified independently.<br/>"
             f"<b>Verification URI:</b> <font color='#0f766e'>{verification_url}</font><br/>"
             f"<b>Cryptographic Seal:</b> SHA-256 Digest <font face='Courier'>{verification_hash}</font>",
             caption_style
-        )
-    ]))
+        ))
 
-    # Set report_id on canvas for running header
+    # Canvas generator for running header & footer
     def make_canvas(*args, **kwargs):
         c = NumberedCanvas(*args, **kwargs)
         c.report_id_str = report_id[:8]

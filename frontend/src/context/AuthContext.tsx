@@ -3,8 +3,10 @@ import { api } from '../services/api';
 
 export interface User {
   id: string;
-  email: string;
+  username?: string;
+  email?: string;
   display_name: string;
+  is_admin?: boolean;
   is_email_verified: boolean;
   created_at: string;
 }
@@ -22,8 +24,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isEmailVerified: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
+  login: (usernameOrEmail: string, password: string) => Promise<void>;
+  register: (usernameOrEmail: string, password: string, displayName?: string, email?: string) => Promise<string[] | undefined>;
   logout: () => void;
   verifyEmailSimulate: () => Promise<void>;
   resendVerification: () => Promise<string>;
@@ -78,10 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, displayName?: string) => {
+  const register = async (usernameOrEmail: string, password: string, displayName?: string, email?: string) => {
     setIsLoading(true);
     try {
-      const data = await api.register(email, password, displayName);
+      const data = await api.register(usernameOrEmail, password, displayName, email);
       localStorage.setItem('locallens_token', data.access_token);
       setToken(data.access_token);
       setUser(data.user);
@@ -91,12 +93,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.warn('Credits load deferred:', err);
       }
+      return data.recovery_codes as string[] | undefined;
     } finally {
       setIsLoading(false);
     }
   };
 
   const logout = () => {
+    if (token) {
+      api.logout().catch(() => {});
+    }
     localStorage.removeItem('locallens_token');
     setToken(null);
     setUser(null);

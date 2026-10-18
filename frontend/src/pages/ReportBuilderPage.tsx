@@ -9,7 +9,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Scale,
-  Info
+  Info,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { SearchBar } from '../components/search/SearchBar';
 import { ReportFeedbackModal } from '../components/reports/ReportFeedbackModal';
@@ -41,6 +43,7 @@ export const ReportBuilderPage: React.FC = () => {
   const [powerBackup, setPowerBackup] = useState('Full Backup');
   const [rentPrice, setRentPrice] = useState('');
   const [notes, setNotes] = useState('');
+  const [showPropertyDetails, setShowPropertyDetails] = useState(false);
 
   // 4. Comparison locality (Optional)
   const [compareLocality, setCompareLocality] = useState<LocationDetails | null>(null);
@@ -364,121 +367,141 @@ export const ReportBuilderPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. Optional Property Details */}
+        {/* 3. Optional Property Details (Collapsed by default) */}
         <div className="space-y-4 pt-4 border-t border-slate-100">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-navy-900 uppercase tracking-wider">
-              3. Property Specifics (Optional Context)
-            </label>
-            <span className="text-[11px] text-slate-400">Contextual property notes</span>
+            <div>
+              <label className="block text-xs font-bold text-navy-900 uppercase tracking-wider">
+                3. Property Specifics (Optional Context)
+              </label>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Add optional property-specific details to include in your personalized report.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPropertyDetails(!showPropertyDetails)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors flex items-center gap-1.5 ${
+                showPropertyDetails
+                  ? 'bg-teal-50 text-teal-800 border-teal-300'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>{showPropertyDetails ? 'Hide property details' : 'Add property details (optional)'}</span>
+              {showPropertyDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
           </div>
 
-          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
-            <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-            <span>
-              <b>Legal Notice:</b> Any property details entered below are printed in the report with the explicit disclosure: <span className="italic">"Information provided by report creator — not independently verified by LocalLens."</span>
-            </span>
-          </div>
+          {showPropertyDetails && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
+                <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                <span>
+                  <b>Legal Notice:</b> Any property details entered below are printed in the report with the explicit disclosure: <span className="italic">"Information provided by report creator — not independently verified by LocalLens."</span>
+                </span>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Address / Project Name
-              </label>
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="e.g. Prestige Greenwoods, Flat 402"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Address / Project Name
+                  </label>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="e.g. Prestige Greenwoods, Flat 402"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Floor Level
+                  </label>
+                  <input
+                    type="text"
+                    value={floorLevel}
+                    onChange={(e) => setFloorLevel(e.target.value)}
+                    placeholder="e.g. 4th Floor of 14"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Unit Facing
+                  </label>
+                  <input
+                    type="text"
+                    value={facing}
+                    onChange={(e) => setFacing(e.target.value)}
+                    placeholder="e.g. East facing balcony"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Water Source (Declared)
+                  </label>
+                  <select
+                    value={waterSource}
+                    onChange={(e) => setWaterSource(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+                  >
+                    <option value="Cauvery / Municipal piped">Cauvery / Municipal piped</option>
+                    <option value="Cauvery + Borewell">Cauvery + Borewell</option>
+                    <option value="Borewell only">Borewell only</option>
+                    <option value="Tanker dependent">Tanker dependent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Power Backup (Declared)
+                  </label>
+                  <select
+                    value={powerBackup}
+                    onChange={(e) => setPowerBackup(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
+                  >
+                    <option value="Full Backup (incl AC)">Full Backup (incl AC)</option>
+                    <option value="Partial (Lights & Fans only)">Partial (Lights & Fans only)</option>
+                    <option value="None">None</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Quoted Rent / Price
+                  </label>
+                  <input
+                    type="text"
+                    value={rentPrice}
+                    onChange={(e) => setRentPrice(e.target.value)}
+                    placeholder="e.g. 45,000 / month"
+                    className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Personal Property Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Notes on maintenance charges, landlord terms, physical inspection notes..."
+                  rows={2}
+                  className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
             </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Floor Level
-              </label>
-              <input
-                type="text"
-                value={floorLevel}
-                onChange={(e) => setFloorLevel(e.target.value)}
-                placeholder="e.g. 4th Floor of 14"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Unit Facing
-              </label>
-              <input
-                type="text"
-                value={facing}
-                onChange={(e) => setFacing(e.target.value)}
-                placeholder="e.g. East facing balcony"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Water Source (Declared)
-              </label>
-              <select
-                value={waterSource}
-                onChange={(e) => setWaterSource(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
-              >
-                <option value="Cauvery / Municipal piped">Cauvery / Municipal piped</option>
-                <option value="Cauvery + Borewell">Cauvery + Borewell</option>
-                <option value="Borewell only">Borewell only</option>
-                <option value="Tanker dependent">Tanker dependent</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Power Backup (Declared)
-              </label>
-              <select
-                value={powerBackup}
-                onChange={(e) => setPowerBackup(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500 bg-white"
-              >
-                <option value="Full Backup (incl AC)">Full Backup (incl AC)</option>
-                <option value="Partial (Lights & Fans only)">Partial (Lights & Fans only)</option>
-                <option value="None">None</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Quoted Rent / Price
-              </label>
-              <input
-                type="text"
-                value={rentPrice}
-                onChange={(e) => setRentPrice(e.target.value)}
-                placeholder="e.g. 45,000 / month"
-                className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-              Personal Property Notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Notes on maintenance charges, landlord terms, physical inspection notes..."
-              rows={2}
-              className="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
-          </div>
+          )}
         </div>
 
         {/* 4. Optional Comparison Locality */}

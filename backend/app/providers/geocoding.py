@@ -182,7 +182,7 @@ class PhotonGeocodingProvider(GeocodingProvider):
         url = "https://photon.komoot.io/api/"
         params = {"q": query, "limit": 5}
         try:
-            async with httpx.AsyncClient(timeout=6.0) as client:
+            async with httpx.AsyncClient(timeout=12.0) as client:
                 headers = {"User-Agent": "LocalLens/4.0 (contact: info@locallens.app)"}
                 resp = await client.get(url, params=params, headers=headers)
                 if resp.status_code == 200:

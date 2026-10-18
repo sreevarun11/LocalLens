@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from backend.app.schemas.base import ModuleResult, EvidenceItem, EvidenceGap
 from backend.app.schemas.location import PlacesData
-from backend.app.schemas.modules import AirQualityData, WaterQualityData, CrimeData, CommuteData
+from backend.app.schemas.modules import AirQualityData, WaterQualityData, CrimeData, SafetyAndCrimeData, CommuteData
 from backend.app.evidence.builder import EvidenceBuilder
 from backend.app.evidence.personalization import (
     PersonalizationEngine,
@@ -25,7 +25,7 @@ class InsightsRequest(BaseModel):
     places: ModuleResult[PlacesData] | None = None
     environment: ModuleResult[AirQualityData] | None = None
     water: ModuleResult[WaterQualityData] | None = None
-    crime: ModuleResult[CrimeData] | None = None
+    crime: ModuleResult[SafetyAndCrimeData] | ModuleResult[CrimeData] | None = None
     commute: ModuleResult[CommuteData] | None = None
 
 class InsightsResponse(BaseModel):

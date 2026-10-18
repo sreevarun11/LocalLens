@@ -294,24 +294,24 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         <span className="font-medium text-slate-400">Demo localities:</span>
         <button
           type="button"
-          onClick={() => handleDemoSelect('Koramangala, Bengaluru')}
+          onClick={() => handleDemoSelect('Hyderabad')}
           className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition-colors font-medium shadow-2xs"
         >
-          Koramangala, BLR (Rich)
+          Hyderabad
         </button>
         <button
           type="button"
-          onClick={() => handleDemoSelect('Indiranagar, Bengaluru')}
+          onClick={() => handleDemoSelect('Nizamabad')}
           className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition-colors font-medium shadow-2xs"
         >
-          Indiranagar, BLR (Comparable)
+          Nizamabad
         </button>
         <button
           type="button"
-          onClick={() => handleDemoSelect('Chandapura, Bengaluru')}
+          onClick={() => handleDemoSelect('Mancherial')}
           className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-700 transition-colors font-medium shadow-2xs"
         >
-          Chandapura, BLR (Gaps)
+          Mancherial
         </button>
       </div>
     </div>

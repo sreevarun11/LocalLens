@@ -67,3 +67,5 @@ class PlacesData(BaseModel):
     counts_by_category: dict[str, int] = Field(default_factory=dict)
     radius_m: int
     cap_reached: bool = False
+    total_found: int | None = None
+    displayed_count: int | None = None

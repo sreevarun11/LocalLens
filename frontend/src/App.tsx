@@ -106,16 +106,17 @@ export const App: React.FC = () => {
                 <Link to="/payments" className="hover:text-teal-700">Plans & Credits</Link>
                 <Link to="/data-sources" className="hover:text-teal-700">Data Sources</Link>
                 <Link to="/how-it-works" className="hover:text-teal-700">How It Works</Link>
-                <Link to="/admin" className="hover:text-teal-700">Diagnostics</Link>
+                <Link to="/admin" className="hover:text-teal-700">Admin</Link>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-              <div>
-                &copy; {new Date().getFullYear()} LocalLens Platform. All rights reserved. Zero data fabrication guarantee.
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+              <div className="space-y-0.5 text-center sm:text-left">
+                <p className="font-medium text-slate-700">Created with purpose by Maheshwaram Sree Varun</p>
+                <p className="text-slate-400">© 2026 LocalLens. All rights reserved.</p>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 text-slate-400">
                 <Link to="/about" className="hover:text-slate-600">About</Link>
                 <Link to="/contact" className="hover:text-slate-600">Contact</Link>
                 <Link to="/privacy" className="hover:text-slate-600">Privacy Policy</Link>

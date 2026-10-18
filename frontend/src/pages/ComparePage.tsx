@@ -49,9 +49,11 @@ export const ComparePage: React.FC = () => {
   const [summary, setSummary] = useState<ComparisonSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadWaterCrime, setLoadWaterCrime] = useState(false);
+  const [radiusM, setRadiusM] = useState<number>(1500);
 
-  const runComparison = async (locationA: LocationDetails, locationB: LocationDetails) => {
+  const runComparison = async (locationA: LocationDetails, locationB: LocationDetails, customRadius?: number) => {
     setIsLoading(true);
+    const effectiveRadius = customRadius ?? radiusM;
     try {
       const res = await fetch('/api/compare', {
         method: 'POST',
@@ -63,6 +65,7 @@ export const ComparePage: React.FC = () => {
           loc_b_name: locationB.name,
           loc_b_lat: locationB.lat,
           loc_b_lng: locationB.lng,
+          radius_m: effectiveRadius,
           load_water_crime: loadWaterCrime
         })
       });
@@ -142,6 +145,35 @@ export const ComparePage: React.FC = () => {
         </p>
       </div>
 
+      {/* Survey Radius Selector */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-navy-900 uppercase tracking-wider">Survey Radius:</span>
+          <span className="text-xs text-slate-500">Evaluates both localities with the exact same straight-line radius</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {[500, 1000, 1500, 2000, 3000].map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                setRadiusM(r);
+                if (locA && locB) {
+                  runComparison(locA, locB, r);
+                }
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                radiusM === r
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              {r >= 1000 ? `${r / 1000} km` : `${r} m`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Dual Search Selection */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Locality A */}
@@ -157,7 +189,7 @@ export const ComparePage: React.FC = () => {
             )}
           </div>
           <SearchBar
-            placeholder="Search first locality (e.g. Koramangala)"
+            placeholder="Search first locality (e.g. Hyderabad)"
             initialValue={locA?.formatted_address || ''}
             onLocationSelected={handleLocASelected}
           />
@@ -181,7 +213,7 @@ export const ComparePage: React.FC = () => {
             )}
           </div>
           <SearchBar
-            placeholder="Search second locality (e.g. Indiranagar)"
+            placeholder="Search second locality (e.g. Nizamabad)"
             initialValue={locB?.formatted_address || ''}
             onLocationSelected={handleLocBSelected}
           />
@@ -201,7 +233,7 @@ export const ComparePage: React.FC = () => {
             Comparing Both Localities in Parallel…
           </h3>
           <p className="text-xs text-slate-500">
-            Querying identical 1.5 km radii from external providers and validating comparability rules.
+            Querying identical {radiusM >= 1000 ? `${radiusM / 1000} km` : `${radiusM} m`} radii from spatial providers and validating comparability rules.
           </p>
         </div>
       )}
@@ -267,7 +299,7 @@ export const ComparePage: React.FC = () => {
                   Side-by-Side Metrics & Comparability
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Identical radius: 1500m straight-line distance
+                  Identical radius: {radiusM >= 1000 ? `${radiusM / 1000} km` : `${radiusM} m`} straight-line distance
                 </p>
               </div>
               <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">

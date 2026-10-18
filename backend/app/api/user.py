@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from typing import Any
 from backend.app.db.repository import Repository
-from backend.app.auth.dependencies import get_current_user, get_optional_user
+from backend.app.auth.dependencies import get_current_user, get_optional_user, get_current_admin_user
 
 router = APIRouter(prefix="/api", tags=["User Data & Preferences"])
 
@@ -43,13 +43,13 @@ def get_user_credits(user: dict = Depends(get_current_user)):
     return Repository.get_credits(user["id"])
 
 @router.post("/credits/add")
-def add_user_credits(req: AddCreditsRequest, user: dict = Depends(get_current_user)):
+def add_user_credits(req: AddCreditsRequest, admin_user: dict = Depends(get_current_admin_user)):
     if req.amount <= 0 or req.amount > 50:
         raise HTTPException(status_code=400, detail="Credit quantity must be between 1 and 50")
-    success = Repository.add_credits(user["id"], req.amount)
+    success = Repository.add_credits(admin_user["id"], req.amount)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to add credits")
-    credits = Repository.get_credits(user["id"])
+    credits = Repository.get_credits(admin_user["id"])
     return {"message": f"Successfully added {req.amount} credit(s)", "credits": credits}
 
 @router.get("/preferences")

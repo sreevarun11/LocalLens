@@ -58,22 +58,27 @@ export const LoginPage: React.FC = () => {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Email address
+                Username or Email address
               </label>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="username or you@example.com"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Password
+                </label>
+                <Link to="/forgot-password" className="text-[11px] font-semibold text-teal-700 hover:underline">
+                  Forgot Password?
+                </Link>
+              </div>
               <input
                 type="password"
                 required
@@ -87,7 +92,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-2 py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-navy-900 hover:bg-navy-800 transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full mt-2 py-2.5 px-4 rounded-xl text-xs font-semibold text-white bg-navy-900 hover:bg-navy-800 transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <span>{isLoading ? 'Signing in...' : 'Sign in'}</span>
               <ArrowRight className="w-4 h-4" />

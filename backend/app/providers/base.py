@@ -80,7 +80,7 @@ class AirQualityProvider(BaseProvider):
 
 class WaterQualityProvider(BaseProvider):
     @abstractmethod
-    async def get_water_quality(self, lat: float, lng: float) -> ModuleResult[WaterQualityData]:
+    async def get_water_quality(self, lat: float, lng: float, locality: str | None = None) -> ModuleResult[WaterQualityData]:
         pass
 
 

@@ -13,6 +13,8 @@ from backend.app.api.ai import router as ai_router
 from backend.app.api.auth import router as auth_router
 from backend.app.api.user import router as user_router
 from backend.app.api.reports import router as reports_router
+from backend.app.api.payments import router as payments_router
+from backend.app.api.admin import router as admin_router
 
 # Setup structured logging without leaking PII or secrets
 logging.basicConfig(
@@ -28,9 +30,14 @@ app = FastAPI(
 )
 
 # CORS middleware
+try:
+    allowed_cors_origins = settings.get_cors_origins()
+except Exception:
+    allowed_cors_origins = []
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows frontend origin
+    allow_origins=allowed_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,8 +45,15 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
+    # Production security validation
+    if settings.ENVIRONMENT == "production":
+        settings.get_jwt_secret()
+        settings.get_cors_origins()
+
     init_db()
-    logger.info("LocalLens database initialized.")
+    from backend.app.db.repository import Repository
+    Repository.provision_admin_user(settings.ADMIN_USERNAME, getattr(settings, "ADMIN_PASSWORD", None))
+    logger.info("LocalLens database initialized and administrator provisioned.")
 
 # Custom error format handler: { "error": { "code": "...", "message": "..." } }
 @app.exception_handler(HTTPException)
@@ -77,6 +91,8 @@ app.include_router(ai_router, prefix="/api")
 app.include_router(auth_router)
 app.include_router(user_router)
 app.include_router(reports_router)
+app.include_router(payments_router)
+app.include_router(admin_router)
 
 @app.get("/")
 async def root():

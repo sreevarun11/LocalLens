@@ -28,8 +28,10 @@ export interface Coverage {
     | 'exact_place'
     | 'nearby_place'
     | 'monitoring_station'
+    | 'mandal'
     | 'city'
     | 'district'
+    | 'commissionerate'
     | 'state'
     | 'unknown';
   radius_m?: number | null;
@@ -109,6 +111,21 @@ export interface PlacesData {
   counts_by_category: Record<string, number>;
   radius_m: number;
   cap_reached: boolean;
+  total_found?: number | null;
+  displayed_count?: number | null;
+}
+
+export interface WeatherData {
+  temperature_c?: number | null;
+  apparent_temperature_c?: number | null;
+  humidity_pct?: number | null;
+  wind_speed_kmh?: number | null;
+  wind_direction_deg?: number | null;
+  precipitation_mm?: number | null;
+  precipitation_probability_pct?: number | null;
+  uv_index?: number | null;
+  weather_desc?: string | null;
+  forecast_time?: string | null;
 }
 
 export interface AirQualityData {
@@ -126,6 +143,14 @@ export interface AirQualityData {
   model_grid_resolution_km?: number | null;
   dominant_pollutant?: string | null;
   advisory?: string | null;
+  weather?: WeatherData | null;
+  temperature_c?: number | null;
+  apparent_temperature_c?: number | null;
+  humidity_pct?: number | null;
+  wind_speed_kmh?: number | null;
+  precipitation_probability_pct?: number | null;
+  uv_index?: number | null;
+  weather_desc?: string | null;
 }
 
 export interface WaterQualityData {
@@ -135,6 +160,27 @@ export interface WaterQualityData {
   hardness_mg_l?: number | null;
   sample_date?: string | null;
   data_level: string;
+  district_name?: string | null;
+  district_code?: string | null;
+  mandal_name?: string | null;
+  assessment_category?: string | null;
+  stage_of_extraction_pct?: number | null;
+  mandal_stage_of_extraction_pct?: number | null;
+  district_stage_of_extraction_pct?: number | null;
+  annual_extractable_ham?: number | null;
+  annual_extraction_ham?: number | null;
+  water_table_pre_monsoon_mbgl?: number | null;
+  water_table_post_monsoon_mbgl?: number | null;
+  seasonal_water_table_rise_m?: number | null;
+  reporting_year?: string | null;
+  assessment_methodology?: string | null;
+  mandals_summary?: string | null;
+  tds_range_mg_l?: string | null;
+  ph_range?: string | null;
+  is_historical_baseline?: boolean;
+  dataset_publication?: string | null;
+  geographic_resolution?: string | null;
+  disclaimer?: string | null;
 }
 
 export interface CrimeData {
@@ -145,20 +191,70 @@ export interface CrimeData {
   source_agency?: string | null;
 }
 
+export interface SafetyFacility {
+  id: string;
+  name: string;
+  facility_type: 'police' | 'fire_station';
+  lat: number;
+  lng: number;
+  distance_m: number;
+  distance_km: number;
+  address?: string | null;
+  source_name: string;
+  source_attribution?: string | null;
+}
+
+export interface EmergencyContact {
+  service: string;
+  number: string;
+  description: string;
+  jurisdiction: string;
+  verified_authority: string;
+  source_url: string;
+  last_verified_at?: string | null;
+  limitations: string[];
+}
+
+export interface JurisdictionInfo {
+  jurisdiction_name?: string | null;
+  jurisdiction_type: 'commissionerate' | 'district_police' | 'unavailable';
+  supporting_authority?: string | null;
+  source_url?: string | null;
+  geographic_resolution?: string | null;
+  limitations: string[];
+}
+
+export interface SafetyAndCrimeData extends CrimeData {
+  nearby_facilities: SafetyFacility[];
+  emergency_contacts: EmergencyContact[];
+  jurisdiction: JurisdictionInfo;
+  crime_statistics_status: 'available' | 'unavailable';
+  crime_disclosure_note: string;
+  absence_caveat: string;
+}
+
 export interface CommuteModeResult {
   mode: 'driving' | 'transit' | 'walking' | 'two_wheeler';
   duration_min?: number | null;
+  duration_s?: number | null;
   distance_km?: number | null;
+  distance_m?: number | null;
   status: StatusKind;
   route_summary?: string | null;
+  route_geometry?: [number, number][] | null;
   provider: string;
   fare?: string | null;
+  data_kind?: 'road_network_estimate' | 'live_traffic' | 'timetable_schedule' | 'unavailable';
+  limitations?: string[];
 }
 
 export interface CommuteData {
+  origin_coords?: Coordinates | null;
   destination_name: string;
   destination_coords?: Coordinates | null;
   modes: Record<string, CommuteModeResult>;
+  nearby_transit_nodes_count?: number | null;
+  traffic_claim?: string;
 }
 
 // User Profiles & Priorities (Section 8)
@@ -180,7 +276,8 @@ export type PriorityKey =
   | 'lifestyle'
   | 'environment'
   | 'safety_infrastructure'
-  | 'commute';
+  | 'commute'
+  | 'water';
 
 export interface DistancePreference {
   priority: PriorityKey;
@@ -230,8 +327,11 @@ export interface EvidenceItem {
   locality_key: string;
   module: string;
   metric: string;
+  title?: string | null;
+  finding?: string | null;
   value?: number | string | null;
   unit?: string | null;
+  status?: StatusKind;
   radius_m?: number | null;
   result_cap_reached?: boolean | null;
   entities: EvidenceEntity[];
@@ -241,6 +341,9 @@ export interface EvidenceItem {
   fetched_at: string;
   measured_at?: string | null;
   source_updated_at?: string | null;
+  reporting_period?: string | null;
+  geographic_resolution?: string | null;
+  data_kind?: string | null;
   limitations: string[];
 }
 
@@ -248,4 +351,7 @@ export interface EvidenceGap {
   module: string;
   reason: string;
   granularity_needed: string;
+  status?: StatusKind;
+  available_facts?: string | null;
+  missing_data?: string | null;
 }
